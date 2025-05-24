@@ -1,109 +1,70 @@
-from fastapi import FastAPI, Request
-from pydantic import BaseModel
-from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
-import uvicorn
+# mcp_server.py
+# MCP-compliant WebSocket server with JSON-RPC 2.0
+# Version: 2.0.0
+
+import asyncio
 import logging
-from dummy_app import MockApp
-from function_calling import FunctionCallingSystem
+import argparse
+import sys
+import os
+from websocket_handler import MCPWebSocketServer
 
-# Pydantic models for MCP
-class Message(BaseModel):
-    role: str
-    content: str
+# Version information
+def get_version():
+    """Get version from VERSION file."""
+    try:
+        version_file = os.path.join(os.path.dirname(__file__), 'VERSION')
+        with open(version_file, 'r') as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        return "2.0.0"  # Fallback version
 
-class AskRequest(BaseModel):
-    messages: list[Message]
+__version__ = get_version()
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+
 logger = logging.getLogger("mcp_server")
 
-# Initialize FastAPI, LLM, and mock application
-app = FastAPI()
-mock_app = MockApp()
-
-# Initialize function calling system
-function_system = FunctionCallingSystem()
-
-# Register mock app functions
-function_system.register_function(
-    "create_user", 
-    mock_app.create_user,
-    {"user_id": "string", "name": "string"}
-)
-function_system.register_function(
-    "get_user", 
-    mock_app.get_user,
-    {"user_id": "string"}
-)
-
-# Load demo model (public, open-access)
-MODEL_NAME = "distilgpt2"
-tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-model = AutoModelForCausalLM.from_pretrained(MODEL_NAME)
-llama_pipe = pipeline("text-generation", model=model, tokenizer=tokenizer)
-
-@app.post("/ask")
-async def ask(request: AskRequest):
-    # Get the last user message
-    user_message = request.messages[-1].content
-    logger.info(f"Processing message: {user_message}")
+async def main():
+    """Main entry point for the MCP server."""
+    parser = argparse.ArgumentParser(description="MCP Demo Server")
+    parser.add_argument("--host", default="localhost", help="Host to bind to")
+    parser.add_argument("--port", type=int, default=8080, help="Port to bind to")
+    parser.add_argument("--mock-llm", action="store_true", help="Use mock LLM for testing")
     
-    # Process function calls first
-    function_results = function_system.process_message(user_message)
+    args = parser.parse_args()
     
-    # Generate LLM response
-    generation = llama_pipe(user_message, max_new_tokens=256, do_sample=True, temperature=0.1)
-    response_text = generation[0]["generated_text"]
+    logger.info(f"Starting MCP Demo Server v{__version__}")
+    logger.info(f"Host: {args.host}")
+    logger.info(f"Port: {args.port}")
+    logger.info(f"Mock LLM: {args.mock_llm}")
     
-    # Clean up excessive newlines in the response
-    import re
-    cleaned_text = re.sub(r'\n{2,}', '\n', response_text).strip()
+    # Create and run the WebSocket server
+    server = MCPWebSocketServer(
+        host=args.host,
+        port=args.port,
+        use_mock_llm=args.mock_llm
+    )
     
-    # Prepare the response
-    response_content = cleaned_text
-    
-    # If functions were executed, add their results to the response
-    if function_results:
-        function_summary = "\n\n--- Function Execution Results ---\n"
-        for result in function_results:
-            if result.success:
-                function_summary += f"✅ {result.function_name}({', '.join(f'{k}={v}' for k, v in result.parameters.items())})\n"
-                function_summary += f"   Result: {result.result}\n"
-            else:
-                function_summary += f"❌ {result.function_name}({', '.join(f'{k}={v}' for k, v in result.parameters.items())})\n"
-                function_summary += f"   Error: {result.error}\n"
-        
-        response_content += function_summary
-    
-    # Return enhanced MCP-compatible response
-    return {
-        "choices": [{"message": {"role": "assistant", "content": response_content}}],
-        "function_calls": [
-            {
-                "function": result.function_name,
-                "parameters": result.parameters,
-                "result": result.result,
-                "success": result.success,
-                "error": result.error
-            } for result in function_results
-        ] if function_results else []
-    }
-
-@app.post("/tools/create_user")
-async def create_user_tool(request: Request):
-    data = await request.json()
-    user_id = data.get("user_id")
-    name = data.get("name")
-    result = mock_app.create_user(user_id, name)
-    return result
-
-@app.post("/tools/get_user")
-async def get_user_tool(request: Request):
-    data = await request.json()
-    user_id = data.get("user_id")
-    result = mock_app.get_user(user_id)
-    return result
+    try:
+        await server.run_forever()
+    except KeyboardInterrupt:
+        logger.info("Received keyboard interrupt, shutting down...")
+    except Exception as e:
+        logger.error(f"Server error: {e}")
+        sys.exit(1)
+    finally:
+        logger.info("MCP server shutdown complete")
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8080)
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("Server interrupted")
+    except Exception as e:
+        logger.error(f"Fatal error: {e}")
+        sys.exit(1)

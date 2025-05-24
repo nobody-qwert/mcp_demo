@@ -3,3 +3,6 @@ pydantic
 transformers
 uvicorn
 torch
+websockets
+jsonschema
+asyncio

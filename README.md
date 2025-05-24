@@ -1,109 +1,117 @@
-# MCP Demo Server with Intelligent Function Calling
+# MCP-Compliant WebSocket Server with Intelligent Function Calling
 
-A FastAPI-based Model Context Protocol (MCP) demo server that combines language model capabilities with intelligent function calling. The server can automatically detect user intents from natural language requests and execute appropriate functions while providing conversational responses.
+**Version 2.0.0** - A fully MCP (Model Context Protocol) compliant WebSocket server implementing JSON-RPC 2.0 with intelligent function calling capabilities. The server combines language model integration with proper MCP protocol implementation for real-time bidirectional communication.
 
 ## 🚀 Features
 
-- **Intelligent Function Calling**: Automatically detects when users want to perform actions (create/get users) from natural language
-- **Language Model Integration**: Uses Hugging Face transformers (DistilGPT-2) for conversational responses
-- **Mock User Management**: Demonstrates function calling with user creation and retrieval operations
-- **Hybrid Response System**: Combines LLM responses with function execution results
-- **Comprehensive Logging**: Tracks all function calls and operations for debugging
+- **Full MCP Compliance**: JSON-RPC 2.0 over WebSockets with proper protocol implementation
+- **Session Management**: Stateful connections with unique session IDs and capability negotiation
+- **Tool Registry**: JSON Schema-validated tools with automatic parameter validation
+- **Intelligent Function Calling**: Automatic detection of user intents from natural language (legacy support)
+- **Language Model Integration**: Streaming LLM responses with DistilGPT-2 or mock LLM for testing
+- **Real-time Communication**: WebSocket-based bidirectional messaging with progress notifications
+- **Security & Consent**: Built-in user consent mechanisms for tool execution
+- **Comprehensive Error Handling**: MCP-compliant error codes and detailed error responses
 
 ## 🏗️ Architecture
 
-### System Overview
+### MCP Protocol Overview
 
 ```mermaid
 graph TB
-    A[Client Request] --> B[FastAPI Server]
-    B --> C[Function Detection System]
-    B --> D[Language Model Pipeline]
+    A[WebSocket Client] --> B[MCP WebSocket Server]
+    B --> C[Session Manager]
+    B --> D[Protocol Handler]
+    B --> E[Tool Registry]
+    B --> F[LLM Integration]
     
-    C --> E[Pattern Matching]
-    C --> F[Parameter Extraction]
+    C --> G[Session Storage]
+    D --> H[JSON-RPC 2.0 Parser]
+    D --> I[Method Router]
+    E --> J[JSON Schema Validator]
+    E --> K[Tool Executor]
+    F --> L[Streaming Response Generator]
     
-    E --> G[Function Registry]
-    F --> G
-    G --> H[Mock App Functions]
-    
-    D --> I[DistilGPT-2 Model]
-    I --> J[Response Generation]
-    
-    H --> K[Function Results]
-    J --> L[LLM Response]
-    
-    K --> M[Combined Response]
-    L --> M
-    M --> N[Client Response]
+    H --> M[mcp.initialize]
+    H --> N[mcp.ping]
+    H --> O[tools.list]
+    H --> P[tool.invoke]
     
     style B fill:#e1f5fe
-    style C fill:#f3e5f5
-    style D fill:#e8f5e8
-    style G fill:#fff3e0
-    style H fill:#fce4ec
+    style D fill:#f3e5f5
+    style E fill:#e8f5e8
+    style F fill:#fff3e0
 ```
 
-### Function Calling Flow
+### MCP Protocol Flow
 
 ```mermaid
 sequenceDiagram
     participant Client
-    participant FastAPI
-    participant FunctionSystem
+    participant Server
+    participant SessionMgr
+    participant ToolRegistry
     participant LLM
-    participant MockApp
     
-    Client->>FastAPI: POST /ask with natural language
-    FastAPI->>FunctionSystem: Process message for function calls
-    FunctionSystem->>FunctionSystem: Detect intent & extract parameters
+    Client->>Server: WebSocket Connection
+    Server->>SessionMgr: Create Session
     
-    alt Function detected
-        FunctionSystem->>MockApp: Execute function (create_user/get_user)
-        MockApp-->>FunctionSystem: Return result
-    end
+    Client->>Server: mcp.initialize
+    Server->>SessionMgr: Initialize Session
+    Server-->>Client: Session ID + Capabilities
     
-    FastAPI->>LLM: Generate conversational response
-    LLM-->>FastAPI: Return generated text
+    Client->>Server: tools.list
+    Server->>ToolRegistry: Get Available Tools
+    Server-->>Client: Tool Schemas
     
-    FastAPI->>FastAPI: Combine LLM response + function results
-    FastAPI-->>Client: Return enhanced response
+    Client->>Server: tool.invoke
+    Server->>Server: user.consent notification
+    Server->>ToolRegistry: Validate & Execute
+    ToolRegistry-->>Server: Tool Result
+    Server-->>Client: Execution Result
+    
+    Client->>Server: mcp.ping
+    Server-->>Client: pong
 ```
 
 ### Component Architecture
 
 ```mermaid
 graph LR
-    subgraph "FastAPI Server"
-        A["ask endpoint"] --> B[Request Processing]
-        C["tools/create_user"] --> D[Direct Function Calls]
-        E["tools/get_user"] --> D
+    subgraph "WebSocket Layer"
+        A[WebSocket Handler] --> B[Connection Manager]
+        A --> C[Message Router]
     end
     
-    subgraph "Function Calling System"
-        F[FunctionDetector] --> G[Pattern Matching]
-        H[FunctionRegistry] --> I[Function Execution]
-        J[FunctionCallingSystem] --> F
-        J --> H
+    subgraph "MCP Protocol"
+        D[Protocol Handler] --> E[JSON-RPC Parser]
+        D --> F[Method Dispatcher]
+        D --> G[Error Handler]
     end
     
-    subgraph "Mock Application"
-        K[MockApp] --> L[create_user]
-        K --> M[get_user]
-        K --> N[User Storage]
+    subgraph "Session Management"
+        H[Session Manager] --> I[Session Storage]
+        H --> J[Capability Negotiation]
     end
     
-    subgraph "Language Model"
-        O[DistilGPT-2] --> P[Text Generation]
-        Q[Tokenizer] --> O
+    subgraph "Tool System"
+        K[Tool Registry] --> L[Schema Validator]
+        K --> M[Tool Executor]
+        K --> N[Mock App Functions]
     end
     
-    B --> J
-    B --> O
-    I --> K
+    subgraph "LLM Integration"
+        O[Streaming LLM] --> P[Response Generator]
+        O --> Q[Mock LLM]
+    end
+    
+    C --> D
+    D --> H
+    D --> K
+    D --> O
     
     style A fill:#4fc3f7
-    style F fill:#ba68c8
+    style D fill:#ba68c8
     style K fill:#81c784
     style O fill:#ffb74d
 ```
@@ -139,110 +147,184 @@ graph LR
    pip install -r requirements.txt
    ```
 
-6. **Run the server:**
+6. **Run the MCP server:**
    ```cmd
    python mcp_server.py
    ```
-   The server will start on [http://localhost:8080](http://localhost:8080).
+   
+   **Options:**
+   - `--host HOST`: Host to bind to (default: localhost)
+   - `--port PORT`: Port to bind to (default: 8080)
+   - `--mock-llm`: Use mock LLM for faster testing
 
-## 🧪 Testing the System
+   The server will start on `ws://localhost:8080`.
 
-### Automated Test Script
+## 🧪 Testing the MCP Server
 
-Run the PowerShell test script to see intelligent function calling in action:
+### Automated WebSocket Test
 
-```powershell
-.\test_mcp.ps1
+Run the comprehensive WebSocket test client:
+
+```cmd
+python test_mcp_websocket.py
 ```
 
-This script sends a natural language request: *"Please create a new user with id 2 and name Alice."*
+This test suite validates:
+- ✅ Session initialization with capability negotiation
+- ✅ Heartbeat mechanism (ping/pong)
+- ✅ Tool discovery and schema validation
+- ✅ Tool execution with parameter validation
+- ✅ User consent workflow
+- ✅ Error handling and edge cases
 
 ### Expected Test Results
 
-The system will:
+The test client will perform a complete MCP protocol validation:
 
-1. **Detect Intent**: Recognize the user wants to create a user
-2. **Extract Parameters**: Parse `user_id=2` and `name=Alice`
-3. **Execute Function**: Call `create_user(user_id="2", name="alice")`
-4. **Generate Response**: Provide both LLM response and function results
+```
+=== Test 1: Initialize Session ===
+Session initialized: 78b56cd1-1aa7-47a9-b077-6b23de200449
 
-**Sample Response:**
-```json
-{
-  "choices": [
-    {
-      "message": {
-        "role": "assistant",
-        "content": "Please create a new user with id 2 and name Alice.\n\n--- Function Execution Results ---\n✅ create_user(user_id=2, name=alice)\n   Result: {'user_id': '2', 'name': 'alice'}\n"
-      }
-    }
-  ],
-  "function_calls": [
-    {
-      "function": "create_user",
-      "parameters": {"user_id": "2", "name": "alice"},
-      "result": {"user_id": "2", "name": "alice"},
-      "success": true,
-      "error": null
-    }
-  ]
-}
+=== Test 2: Ping ===
+Ping successful with pong response
+
+=== Test 3: List Tools ===
+Available tools: ['create_user', 'get_user']
+
+=== Test 4: Create User ===
+Tool 'create_user' executed successfully
+Result: {'user_id': 'test123', 'name': 'Test User'}
+
+=== Test 5: Get User ===
+Tool 'get_user' executed successfully
+Result: {'user_id': 'test123', 'name': 'Test User'}
+
+=== Test 6: Error Handling ===
+Error response properly handled for invalid tool
+
+=== All Tests Passed! ===
 ```
 
-### Manual Testing Examples
+## 🔌 MCP Protocol Methods
 
-You can test various natural language patterns:
+### Core Protocol Methods
 
-**Create User Examples:**
-- `"Create a new user with id 123 and name John"`
-- `"Add user with ID 456 and name Sarah"`
-- `"Make a user: id=789, name=Mike"`
+#### `mcp.initialize`
+Initialize a new MCP session with capability negotiation.
 
-**Get User Examples:**
-- `"Get user with id 123"`
-- `"Find user ID 456"`
-- `"Retrieve user with id 789"`
-
-## 🔌 API Endpoints
-
-### POST `/ask` - Intelligent Function Calling
-Send natural language requests that can trigger function execution.
-
-**Request Body:**
+**Request:**
 ```json
 {
-  "messages": [
-    {"role": "user", "content": "Create a new user with id 123 and name John"}
-  ]
+  "jsonrpc": "2.0",
+  "method": "mcp.initialize",
+  "params": {
+    "protocolVersion": "2024-11-05",
+    "capabilities": {"tools": true, "streaming": true},
+    "clientInfo": {"name": "MCP Client", "version": "1.0.0"}
+  },
+  "id": "req-1"
 }
 ```
 
 **Response:**
 ```json
 {
-  "choices": [{"message": {"role": "assistant", "content": "..."}}],
-  "function_calls": [...]
+  "jsonrpc": "2.0",
+  "result": {
+    "protocolVersion": "2024-11-05",
+    "sessionId": "78b56cd1-1aa7-47a9-b077-6b23de200449",
+    "capabilities": {"tools": true, "streaming": true, "progress": true, "consent": true},
+    "serverInfo": {"name": "MCP Demo Server", "version": "1.0.0"}
+  },
+  "id": "req-1"
 }
 ```
 
-### POST `/tools/create_user` - Direct User Creation
-Create a user via direct API call.
+#### `mcp.ping`
+Heartbeat mechanism to keep connections alive.
 
-**Request Body:**
+**Request:**
 ```json
 {
-  "user_id": "123",
-  "name": "Alice"
+  "jsonrpc": "2.0",
+  "method": "mcp.ping",
+  "params": {"timestamp": 1640995200000},
+  "id": "req-2"
 }
 ```
 
-### POST `/tools/get_user` - Direct User Retrieval
-Retrieve a user via direct API call.
+#### `tools.list`
+List all available tools with their JSON schemas.
 
-**Request Body:**
+**Response:**
 ```json
 {
-  "user_id": "123"
+  "jsonrpc": "2.0",
+  "result": {
+    "tools": [
+      {
+        "name": "create_user",
+        "description": "Create a new user in the system with a unique ID and name",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "user_id": {"type": "string", "description": "Unique user identifier"},
+            "name": {"type": "string", "description": "User's display name"}
+          },
+          "required": ["user_id", "name"]
+        }
+      }
+    ]
+  },
+  "id": "req-3"
+}
+```
+
+#### `tool.invoke`
+Execute a tool with validated parameters.
+
+**Request:**
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "tool.invoke",
+  "params": {
+    "name": "create_user",
+    "arguments": {"user_id": "123", "name": "Alice"}
+  },
+  "id": "req-4"
+}
+```
+
+### Notifications
+
+#### `user.consent`
+Request user consent before tool execution.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "user.consent",
+  "params": {
+    "tool": "create_user",
+    "arguments": {"user_id": "123", "name": "Alice"},
+    "message": "Do you want to execute tool 'create_user' with the provided arguments?"
+  }
+}
+```
+
+#### `tool.progress`
+Progress updates for long-running operations.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "tool.progress",
+  "params": {
+    "requestId": "req-4",
+    "progress": 0.5,
+    "message": "Processing user creation..."
+  }
 }
 ```
 
@@ -250,64 +332,95 @@ Retrieve a user via direct API call.
 
 ```
 mcp_demo/
-├── mcp_server.py           # Main FastAPI server
-├── function_calling.py     # Intelligent function calling system
-├── dummy_app.py           # Mock user management application
-├── test_mcp.ps1           # PowerShell test script
-├── requirements.txt       # Python dependencies
-├── README.md             # This file
-└── venv/                 # Virtual environment (created during setup)
+├── mcp_server.py              # Main MCP server entry point
+├── websocket_handler.py       # WebSocket server implementation
+├── mcp_protocol.py           # MCP protocol handler with JSON-RPC 2.0
+├── session_manager.py        # Session management and lifecycle
+├── tool_registry.py          # MCP tool registry with JSON Schema
+├── llm_integration.py        # Streaming LLM integration
+├── dummy_app.py             # Mock user management application
+├── test_mcp_websocket.py    # WebSocket test client
+├── function_calling.py      # Legacy intelligent function calling (preserved)
+├── test_mcp.ps1            # Legacy HTTP test script (preserved)
+├── requirements.txt         # Python dependencies
+├── README.md               # This file
+└── venv/                   # Virtual environment (created during setup)
 ```
 
 ## 🔧 How It Works
 
-### 1. Intent Detection
-The `FunctionDetector` class uses regex patterns to identify user intents:
-- **Create User**: Patterns like "create user", "add user", "new user"
-- **Get User**: Patterns like "get user", "find user", "retrieve user"
+### 1. WebSocket Connection & Session Management
+- Client connects via WebSocket to `ws://localhost:8080`
+- Server creates unique session with UUID
+- Capability negotiation during `mcp.initialize`
 
-### 2. Parameter Extraction
-Natural language parsing extracts function parameters:
-- User ID from patterns like "id 123", "ID: 456"
-- Names from patterns like "name Alice", "name: John"
+### 2. Tool Discovery & Schema Validation
+- Tools registered with JSON Schema definitions
+- Client discovers tools via `tools.list`
+- Parameters validated against schemas before execution
 
-### 3. Function Execution
-The `FunctionRegistry` safely executes detected functions with extracted parameters.
+### 3. Secure Tool Execution
+- User consent requested via `user.consent` notification
+- Parameters validated against JSON Schema
+- Tools executed in isolated environment
+- Results returned with success/error status
 
-### 4. Response Combination
-Results are combined into a comprehensive response containing:
-- Original LLM conversational response
-- Function execution results
-- Success/error status for each function call
+### 4. Real-time Communication
+- Bidirectional WebSocket messaging
+- Progress notifications for long operations
+- Streaming LLM responses (when enabled)
+- Heartbeat mechanism for connection health
 
 ## 🚨 Troubleshooting
 
-**Virtual Environment Issues:**
-- Ensure you're running commands from the activated virtual environment
-- Use `venv\Scripts\python.exe` if activation fails
+**WebSocket Connection Issues:**
+- Ensure server is running: `python mcp_server.py --mock-llm`
+- Check port availability: Default port 8080
+- Verify firewall settings
 
-**Model Loading:**
+**Tool Execution Errors:**
+- Check JSON Schema validation in logs
+- Verify tool parameters match schema requirements
+- Review consent mechanism responses
+
+**Session Management:**
+- Sessions auto-expire on disconnect
+- Use `mcp.ping` for keepalive
+- Check session logs for debugging
+
+**LLM Integration:**
+- Use `--mock-llm` flag for testing without model loading
 - First run downloads DistilGPT-2 model (~500MB)
 - Requires internet connection for initial setup
-
-**Function Detection:**
-- Check logs for intent detection: `INFO:function_calling:Detected create_user`
-- Verify parameter extraction in server logs
 
 **General Issues:**
 - Check that all dependencies are installed: `pip list`
 - Verify Python version: `python --version`
-- Ensure port 8080 is available
+- Review server logs for detailed error information
 
-## 🎯 Future Enhancements
+## 🎯 MCP Compliance Features
 
-- [ ] Add more sophisticated NLP for intent detection
-- [ ] Implement user authentication and authorization
-- [ ] Add database persistence instead of in-memory storage
-- [ ] Support for more complex function parameters
-- [ ] Integration with larger language models
-- [ ] Web-based testing interface
+- ✅ **JSON-RPC 2.0**: Full specification compliance
+- ✅ **WebSocket Transport**: Stateful bidirectional communication
+- ✅ **Session Management**: Unique session IDs and lifecycle management
+- ✅ **Capability Negotiation**: Protocol version and feature discovery
+- ✅ **Tool Registry**: JSON Schema-based tool definitions
+- ✅ **Parameter Validation**: Automatic schema validation
+- ✅ **Error Handling**: MCP-compliant error codes and messages
+- ✅ **Security**: User consent mechanisms
+- ✅ **Progress Notifications**: Real-time operation updates
+- ✅ **Heartbeat**: Connection health monitoring
+- ✅ **Streaming**: Partial response streaming support
+
+## 🔄 Migration from HTTP to WebSocket
+
+The server maintains backward compatibility concepts while implementing full MCP compliance:
+
+- **Legacy HTTP endpoints** → **WebSocket JSON-RPC methods**
+- **Custom function detection** → **JSON Schema tool definitions**
+- **REST API calls** → **Real-time WebSocket communication**
+- **Simple responses** → **Structured MCP protocol messages**
 
 ## 📄 License
 
-This is a demo project for educational purposes demonstrating MCP server architecture and intelligent function calling patterns.
+This is a demo project for educational purposes demonstrating MCP server architecture and protocol implementation patterns.
