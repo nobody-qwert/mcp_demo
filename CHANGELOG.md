@@ -5,6 +5,26 @@ All notable changes to the MCP Demo Server project will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.1] - 2025-05-24
+
+### 🧹 Cleanup Release: Remove Legacy Files
+
+#### Removed
+- **Legacy Files**: Removed obsolete files that are no longer compatible with MCP implementation
+  - `test_mcp.ps1` - PowerShell test script for deprecated HTTP endpoints
+  - `function_calling.py` - Legacy intelligent function calling system (replaced by JSON Schema-based tool registry)
+
+#### Changed
+- **Documentation**: Updated README.md to remove references to legacy features and files
+- **Project Structure**: Simplified codebase to focus only on MCP-compliant components
+
+#### Technical Notes
+- This is a cleanup release that removes files incompatible with the WebSocket-based MCP server
+- No functional changes to the MCP server implementation
+- Maintains full backward compatibility for MCP protocol features
+
+---
+
 ## [2.0.0] - 2025-05-24
 
 ### 🚀 Major Release: Full MCP Protocol Compliance

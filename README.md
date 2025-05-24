@@ -1,13 +1,12 @@
 # MCP-Compliant WebSocket Server with Intelligent Function Calling
 
-**Version 2.0.0** - A fully MCP (Model Context Protocol) compliant WebSocket server implementing JSON-RPC 2.0 with intelligent function calling capabilities. The server combines language model integration with proper MCP protocol implementation for real-time bidirectional communication.
+**Version 2.0.1** - A fully MCP (Model Context Protocol) compliant WebSocket server implementing JSON-RPC 2.0. The server combines language model integration with proper MCP protocol implementation for real-time bidirectional communication.
 
 ## 🚀 Features
 
 - **Full MCP Compliance**: JSON-RPC 2.0 over WebSockets with proper protocol implementation
 - **Session Management**: Stateful connections with unique session IDs and capability negotiation
 - **Tool Registry**: JSON Schema-validated tools with automatic parameter validation
-- **Intelligent Function Calling**: Automatic detection of user intents from natural language (legacy support)
 - **Language Model Integration**: Streaming LLM responses with DistilGPT-2 or mock LLM for testing
 - **Real-time Communication**: WebSocket-based bidirectional messaging with progress notifications
 - **Security & Consent**: Built-in user consent mechanisms for tool execution
@@ -340,10 +339,11 @@ mcp_demo/
 ├── llm_integration.py        # Streaming LLM integration
 ├── dummy_app.py             # Mock user management application
 ├── test_mcp_websocket.py    # WebSocket test client
-├── function_calling.py      # Legacy intelligent function calling (preserved)
-├── test_mcp.ps1            # Legacy HTTP test script (preserved)
 ├── requirements.txt         # Python dependencies
+├── VERSION                  # Version information
+├── CHANGELOG.md            # Release notes and version history
 ├── README.md               # This file
+├── .gitignore              # Git configuration
 └── venv/                   # Virtual environment (created during setup)
 ```
 
@@ -420,6 +420,20 @@ The server maintains backward compatibility concepts while implementing full MCP
 - **Custom function detection** → **JSON Schema tool definitions**
 - **REST API calls** → **Real-time WebSocket communication**
 - **Simple responses** → **Structured MCP protocol messages**
+
+## 📈 Version History
+
+This project follows [Semantic Versioning](https://semver.org/). See [CHANGELOG.md](CHANGELOG.md) for detailed release notes.
+
+### Current Version: 2.0.1
+- **v2.0.1** (2025-05-24): Cleanup release - removed legacy files and updated documentation
+- **v2.0.0** (2025-05-24): Full MCP protocol compliance with WebSocket JSON-RPC 2.0
+- **v1.0.0** (2025-05-24): Initial HTTP REST API with intelligent function calling
+
+### Git Tags
+- `v2.0.1`: Cleanup release with legacy file removal
+- `v2.0.0`: Complete MCP-compliant WebSocket server
+- `v1.0.0`: Legacy HTTP REST API version
 
 ## 📄 License
 
