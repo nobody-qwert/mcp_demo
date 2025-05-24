@@ -1,5 +1,7 @@
 # MCP-Compliant WebSocket Server with Intelligent Function Calling
 
+[![MCP Server Tests](https://github.com/nobody-qwert/mcp_demo/actions/workflows/test-mcp-server.yml/badge.svg)](https://github.com/nobody-qwert/mcp_demo/actions/workflows/test-mcp-server.yml)
+
 **Version 2.0.1** - A fully MCP (Model Context Protocol) compliant WebSocket server implementing JSON-RPC 2.0. The server combines language model integration with proper MCP protocol implementation for real-time bidirectional communication.
 
 ## 🚀 Features

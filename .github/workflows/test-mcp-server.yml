@@ -1,0 +1,130 @@
+name: MCP Server Tests
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Start MCP server in background
+      run: |
+        echo "Starting MCP server with mock LLM..."
+        python mcp_server.py --mock-llm &
+        SERVER_PID=$!
+        echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
+        echo "MCP server started with PID: $SERVER_PID"
+    
+    - name: Wait for server startup
+      run: |
+        echo "Waiting for MCP server to start..."
+        sleep 10
+        echo "Checking if server is responding..."
+        # Try to connect to the server port
+        timeout 30 bash -c 'until nc -z localhost 8080; do sleep 1; done' || {
+          echo "Server failed to start on port 8080"
+          ps aux | grep python
+          exit 1
+        }
+        echo "Server is ready!"
+    
+    - name: Run MCP WebSocket tests
+      run: |
+        echo "Running MCP WebSocket test suite..."
+        python test_mcp_websocket.py
+    
+    - name: Stop MCP server
+      if: always()
+      run: |
+        if [ ! -z "$SERVER_PID" ]; then
+          echo "Stopping MCP server (PID: $SERVER_PID)..."
+          kill $SERVER_PID || true
+          sleep 2
+          # Force kill if still running
+          kill -9 $SERVER_PID 2>/dev/null || true
+        fi
+        # Kill any remaining python processes
+        pkill -f "mcp_server.py" || true
+    
+    - name: Upload test logs
+      if: failure()
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-logs
+        path: |
+          *.log
+          /tmp/*.log
+        retention-days: 7
+
+  test-matrix:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ['3.10', '3.11', '3.12']
+      fail-fast: false
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Start MCP server (Unix)
+      if: runner.os != 'Windows'
+      run: |
+        python mcp_server.py --mock-llm &
+        sleep 10
+    
+    - name: Start MCP server (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        Start-Process python -ArgumentList "mcp_server.py --mock-llm" -WindowStyle Hidden
+        Start-Sleep 10
+      shell: powershell
+    
+    - name: Run tests
+      run: python test_mcp_websocket.py
+    
+    - name: Stop server (Unix)
+      if: always() && runner.os != 'Windows'
+      run: pkill -f "mcp_server.py" || true
+    
+    - name: Stop server (Windows)
+      if: always() && runner.os == 'Windows'
+      run: Get-Process | Where-Object {$_.ProcessName -eq "python" -and $_.CommandLine -like "*mcp_server.py*"} | Stop-Process -Force
+      shell: powershell
+      continue-on-error: true
