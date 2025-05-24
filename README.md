@@ -75,9 +75,9 @@ sequenceDiagram
 ```mermaid
 graph LR
     subgraph "FastAPI Server"
-        A[/ask endpoint] --> B[Request Processing]
-        C[/tools/create_user] --> D[Direct Function Calls]
-        E[/tools/get_user] --> D
+        A["ask endpoint"] --> B[Request Processing]
+        C["tools/create_user"] --> D[Direct Function Calls]
+        E["tools/get_user"] --> D
     end
     
     subgraph "Function Calling System"
