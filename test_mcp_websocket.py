@@ -106,12 +106,34 @@ class MCPTestClient:
         return await self.send_request("tools.list")
     
     async def invoke_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        """Invoke a tool."""
+        """Invoke a tool with consent handling."""
         params = {
             "name": tool_name,
             "arguments": arguments
         }
-        return await self.send_request("tool.invoke", params)
+        
+        # Send the tool invoke request
+        request = self.create_request("tool.invoke", params)
+        logger.info(f"Sending request: {request}")
+        await self.websocket.send(request)
+        
+        # First response might be a consent notification
+        response = await self.websocket.recv()
+        logger.info(f"Received response: {response}")
+        response_data = json.loads(response)
+        
+        # Check if it's a consent notification
+        if response_data.get("method") == "user.consent":
+            logger.info("Received consent request - server will auto-approve for demo...")
+            
+            # The server automatically grants consent for demo purposes
+            # Just wait for the actual tool execution result
+            result_response = await self.websocket.recv()
+            logger.info(f"Received tool result: {result_response}")
+            return json.loads(result_response)
+        else:
+            # Direct response without consent
+            return response_data
     
     async def run_test_sequence(self):
         """Run a complete test sequence."""
